@@ -5,21 +5,14 @@ from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
-# Lee el archivo .env y deja sus variables disponibles en os.getenv(...)
 load_dotenv()
 
-# %s son "huecos" que se llenan aparte con valores (consulta parametrizada).
-# Nunca se pegan los valores dentro del texto SQL: así la base los trata como
-# datos y no como código (defensa contra inyección SQL).
-# ON CONFLICT (archivo) DO NOTHING: si ese archivo ya está cargado, no falla
-# ni lo duplica, simplemente no inserta nada. Eso es la idempotencia.
-SQL_INSERT = """
-INSERT INTO raw.tasa_oficial (descargado_en, url_fuente, payload, archivo)
-VALUES (%s, %s, %s, %s)
-ON CONFLICT (archivo) DO NOTHING
-"""
+# Lista fija de fuentes permitidas. El nombre de la carpeta en data/raw/
+# es también el nombre de la tabla en el esquema raw.
+FUENTES = ("tasa_oficial", "tasa_historico")
 
 
 def conectar():
@@ -33,51 +26,59 @@ def conectar():
     )
 
 
-def cargar_archivos(carpeta: Path = Path("data/raw")) -> tuple[int, int]:
-    """Carga los JSON nuevos y devuelve (cargados, omitidos)."""
+def construir_insert(tabla: str) -> sql.Composed:
+    """Arma el INSERT para una tabla del esquema raw.
+
+    Los valores van como %s (se pasan aparte). El nombre de la tabla NO puede
+    ir como %s, por eso se inserta con sql.Identifier, que lo escapa bien.
+    """
+    return sql.SQL(
+        "INSERT INTO {tabla} (descargado_en, url_fuente, payload, archivo) "
+        "VALUES (%s, %s, %s, %s) "
+        "ON CONFLICT (archivo) DO NOTHING"
+    ).format(tabla=sql.Identifier("raw", tabla))
+
+
+def cargar_fuente(conn, fuente: str, base: Path = Path("data/raw")) -> tuple[int, int]:
+    """Carga los JSON nuevos de una fuente y devuelve (cargados, omitidos)."""
+    # Solo se aceptan fuentes de la lista fija.
+    if fuente not in FUENTES:
+        raise ValueError(f"Fuente desconocida: {fuente}")
+
+    insert = construir_insert(fuente)
     cargados = omitidos = 0
 
-    # "with" abre la conexión y la cierra sola al terminar el bloque.
-    # Si todo salió bien, confirma los cambios (commit); si hubo un error,
-    # los deshace (rollback). Así no quedan cargas a medias.
-    with conectar() as conn:
-        # glob("*.json") lista los archivos .json de la carpeta.
-        # sorted() los ordena por nombre, que como lleva la fecha, es
-        # también orden cronológico.
-        for ruta in sorted(carpeta.glob("*.json")):
+    for ruta in sorted((base / fuente).glob("*.json")):
+        with ruta.open(encoding="utf-8") as archivo:
+            sobre = json.load(archivo)
 
-            # 1. Leer el JSON del archivo y convertirlo en diccionario.
-            with ruta.open(encoding="utf-8") as archivo:
-                sobre = json.load(archivo)
+        # Si falta una clave del sobre, el error dice qué archivo la causó.
+        try:
+            descargado_en = datetime.fromisoformat(sobre["descargado_en"])
+            url_fuente = sobre["url_fuente"]
+            datos = sobre["datos"]
+        except KeyError as error:
+            raise ValueError(f"{ruta.name}: falta la clave {error}") from error
 
-            # 2. Insertar. Cada valor va en el mismo orden que los %s de arriba.
-            #    - descargado_en: texto ISO -> datetime, para que sea una fecha real
-            #    - url_fuente: de dónde vino el dato
-            #    - Jsonb(...): le dice a psycopg que esto va a una columna JSONB
-            #    - ruta.name: solo el nombre del archivo; es la clave UNIQUE
-            cursor = conn.execute(
-                SQL_INSERT,
-                (
-                    datetime.fromisoformat(sobre["descargado_en"]),
-                    sobre["url_fuente"],
-                    Jsonb(sobre["datos"]),
-                    ruta.name,
-                ),
-            )
+        # Jsonb(datos) sirve igual para un diccionario (tasa del día)
+        # que para una lista (histórico).
+        cursor = conn.execute(
+            insert, (descargado_en, url_fuente, Jsonb(datos), ruta.name)
+        )
 
-            # 3. rowcount = filas afectadas por el INSERT.
-            #    1 -> se insertó (archivo nuevo)
-            #    0 -> ON CONFLICT lo omitió (ya estaba cargado)
-            if cursor.rowcount == 1:
-                cargados += 1
-            else:
-                omitidos += 1
+        # rowcount: 1 si insertó, 0 si ON CONFLICT lo omitió.
+        if cursor.rowcount == 1:
+            cargados += 1
+        else:
+            omitidos += 1
 
     return cargados, omitidos
 
 
-# Solo corre si ejecutas este archivo directamente (python cargar_raw.py).
-# Si otro archivo lo importa, no se ejecuta nada. Igual que en ingesta.py.
 if __name__ == "__main__":
-    cargados, omitidos = cargar_archivos()
-    print(f"cargados: {cargados}, omitidos: {omitidos}")
+    # Una sola conexión y una sola transacción para todas las fuentes:
+    # si una falla, se deshace todo y no queda nada cargado a medias.
+    with conectar() as conn:
+        for fuente in FUENTES:
+            cargados, omitidos = cargar_fuente(conn, fuente)
+            print(f"{fuente}: cargados {cargados}, omitidos {omitidos}")
