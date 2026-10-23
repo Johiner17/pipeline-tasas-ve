@@ -27,6 +27,7 @@ def guardar_crudo(datos: dict) -> Path:
     ruta = carpeta / nombre_archivo
     contenido = {
         "descargado_en": ahora.isoformat(),
+        "url_fuente": URL,
         "datos": datos,
     }
     with ruta.open("w", encoding="utf-8") as archivo:
