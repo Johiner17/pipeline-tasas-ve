@@ -3,7 +3,7 @@ tasas:
   outputs:
     dev:
       type: postgres
-      host: localhost
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
       port: 5432
       user: "{{ env_var('POSTGRES_USER') }}"
       password: "{{ env_var('POSTGRES_PASSWORD') }}"

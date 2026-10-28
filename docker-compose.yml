@@ -10,6 +10,38 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Scripts que PostgreSQL ejecuta solo la primera vez, con el volumen vacío.
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    # Avisa cuándo la base está lista; Airflow espera a esa señal.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow:
+    build: ./airflow
+    container_name: tasas_airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # Base de metadatos de Airflow: la base "airflow" de nuestro Postgres.
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      # Dentro de Docker, la base se llama "postgres", no "localhost".
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DBT_PROFILES_DIR: /opt/pipeline/dbt_tasas
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - .:/opt/pipeline
+    command: standalone
 
 volumes:
   pgdata:

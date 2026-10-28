@@ -18,7 +18,7 @@ FUENTES = ("tasa_oficial", "tasa_historico")
 def conectar():
     """Abre una conexión a PostgreSQL con las credenciales del .env."""
     return psycopg.connect(
-        host="localhost",
+        host=os.getenv("POSTGRES_HOST", "localhost"),
         port=5432,
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),
