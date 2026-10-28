@@ -153,4 +153,4 @@ docker compose exec postgres psql -U tasas -d tasas_ve -c "SELECT * FROM marts.f
 
 ## Autor
 
-Johiner Almeida · [LinkedIn](www.linkedin.com/in/johiner-almeida) · [GitHub](https://github.com/Johiner17)
+Johiner Almeida · [LinkedIn](https://www.linkedin.com/in/johiner-almeida/) · [GitHub](https://github.com/Johiner17)
