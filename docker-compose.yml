@@ -12,7 +12,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       # Scripts que PostgreSQL ejecuta solo la primera vez, con el volumen vacío.
       - ./sql:/docker-entrypoint-initdb.d:ro
-    # Avisa cuándo la base está lista; Airflow espera a esa señal.
+    # Avisa cuándo la base está lista; los demás servicios esperan esa señal.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -42,6 +42,20 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - .:/opt/pipeline
     command: standalone
+
+  dashboard:
+    build: ./dashboard
+    container_name: tasas_dashboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:8501:8501"
 
 volumes:
   pgdata:
