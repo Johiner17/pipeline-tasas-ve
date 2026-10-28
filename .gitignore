@@ -2,3 +2,6 @@
 data/
 .env
 __pycache__/
+dbt_tasas/target/
+dbt_tasas/logs/
+dbt_tasas/dbt_packages/

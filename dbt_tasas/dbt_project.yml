@@ -1,0 +1,13 @@
+name: tasas
+version: "1.0.0"
+profile: tasas
+
+# Cada carpeta de modelos va a su propio esquema en Postgres.
+models:
+  tasas:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table

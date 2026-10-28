@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: stg_tasa_historico
+    description: Tasa oficial USD/VES, una fila por fecha publicada por el BCV.
+    columns:
+      - name: fecha
+        data_tests: [unique, not_null]
+      - name: tasa_ves
+        data_tests: [not_null]

@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: fct_tasa_diaria
+    description: >
+      Calendario diario completo. Los días sin publicación del BCV toman la
+      última tasa publicada y quedan marcados con es_dia_publicado = false.
+    columns:
+      - name: fecha
+        data_tests: [unique, not_null]
+      - name: tasa_ves
+        data_tests: [not_null]
+      - name: es_dia_publicado
+        data_tests: [not_null]
