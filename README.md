@@ -1,7 +1,22 @@
-# Pipeline de tasas de cambio USD/VES (Venezuela)
+<h1 align="center">Pipeline de tasas de cambio USD/VES</h1>
 
-Pipeline de datos de punta a punta que descarga cada día la tasa oficial del dólar publicada por el BCV, la guarda sin modificar, la limpia, la modela en un calendario diario completo y valida su calidad. Todo corre con Docker y se orquesta con Apache Airflow.
+<p align="center">
+  Pipeline de datos de punta a punta: ingesta, capa cruda, modelado con dbt,
+  orquestación con Airflow y dashboard, todo con Docker.
+</p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/dbt-FF694B?logo=dbt&logoColor=white" alt="dbt">
+  <img src="https://img.shields.io/badge/Airflow-017CEE?logo=apacheairflow&logoColor=white" alt="Airflow">
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit">
+  <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
+</p>
+
+<p align="center">
+  <img src="docs/dashboard.png" alt="Dashboard de la tasa USD/VES" width="900">
+</p>
 > Proyecto de portafolio de ingeniería de datos. No está afiliado al Banco Central de Venezuela.
 
 ## El problema
@@ -32,15 +47,26 @@ flowchart LR
 | `staging` | Una fila por fecha, tipada, tomando la descarga más reciente |
 | `marts` | Calendario completo (`marts.fct_tasa_diaria`) con la regla de relleno y la marca `es_dia_publicado` |
 
-## Dashboard
+## Qué demuestra este proyecto
 
-![Dashboard de la tasa USD/VES](docs/dashboard.png)
-
-Un panel en Streamlit lee `marts.fct_tasa_diaria` y muestra la tasa vigente, la variación a 30 días, la tasa ya publicada para el próximo día, la serie diaria con los días rellenados marcados (con escala logarítmica opcional), la variación mensual y una tabla de calidad con los días hábiles sin tasa publicada.
+- Ingesta desde una API pública, con guardado inmutable del dato original.
+- Carga idempotente a PostgreSQL, con transacción única entre fuentes.
+- Modelado por capas (raw, staging, marts) con dbt y funciones de ventana en SQL.
+- Pruebas de calidad de datos, entre ellas detección de fuente desactualizada.
+- Orquestación con Airflow, con reintentos y ejecución diaria programada.
+- Reproducibilidad: un clon del repositorio levanta todo con `docker compose up`.
 
 ## Stack
 
 Python, PostgreSQL 17, dbt Core 1.12 (adaptador postgres 1.11), Apache Airflow 3.3 con LocalExecutor, Docker Compose, Streamlit, Plotly.
+
+<details>
+<summary><b>Decisiones de diseño</b></summary>
+
+- **Capa cruda inmutable.** ...
+- **Carga idempotente.** ...
+
+</details>
 
 ## Decisiones de diseño
 
@@ -110,6 +136,8 @@ docker compose exec postgres psql -U tasas -d tasas_ve -c "SELECT * FROM marts.f
 ├── docker-compose.yml
 └── requirements.txt        # entorno local de desarrollo
 ```
+> [!WARNING]
+> La fuente es un servicio de terceros sin garantía de disponibilidad. El pipeline tolera fallos con reintentos y vigila la frescura del dato, pero no los evita.
 
 ## Limitaciones conocidas
 
@@ -122,3 +150,7 @@ docker compose exec postgres psql -U tasas -d tasas_ve -c "SELECT * FROM marts.f
 
 - Usar la tasa del día para detectar diferencias con el histórico.
 - Alertas cuando falle una tarea.
+
+## Autor
+
+Johiner Almeida · [LinkedIn](www.linkedin.com/in/johiner-almeida) · [GitHub](https://github.com/Johiner17)
